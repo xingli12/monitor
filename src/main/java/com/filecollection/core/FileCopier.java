@@ -4,14 +4,19 @@ import com.filecollection.strategy.FileSystemStrategy;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 @Slf4j
 public class FileCopier {
     
+    private static final int BUFFER_SIZE = 8192;
+    
     private final RateLimiter rateLimiter;
-    private static final int BUFFER_SIZE = 8192; // 8KB buffer
     
     public FileCopier(long bytesPerSecond) {
         this.rateLimiter = RateLimiter.create(bytesPerSecond);
@@ -22,19 +27,17 @@ public class FileCopier {
         log.debug("Copying file: {} -> {}", sourcePath, targetPath);
         
         try (InputStream in = sourceFs.readFile(sourcePath)) {
-            // 创建目标文件的输出流
-            java.nio.file.Path target = java.nio.file.Path.of(targetPath);
-            java.nio.file.Files.createDirectories(target.getParent());
+            Path target = Path.of(targetPath);
+            Files.createDirectories(target.getParent());
             
-            try (OutputStream out = java.nio.file.Files.newOutputStream(target, 
-                    java.nio.file.StandardOpenOption.CREATE, 
-                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (OutputStream out = Files.newOutputStream(target, 
+                    StandardOpenOption.CREATE, 
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
                 
                 byte[] buffer = new byte[BUFFER_SIZE];
                 int bytesRead;
                 
                 while ((bytesRead = in.read(buffer)) != -1) {
-                    // 限速：等待发送这些字节的配额
                     rateLimiter.acquire(bytesRead);
                     out.write(buffer, 0, bytesRead);
                 }

@@ -20,27 +20,21 @@ public class LocalFileSystem implements FileSystemStrategy {
     
     @Override
     public void connect() {
-        Path path = Path.of(basePath);
-        if (!Files.exists(path)) {
-            throw new FileSystemException("Base path does not exist: " + basePath);
-        }
+        validatePath(basePath, "Base path does not exist");
     }
     
     @Override
     public List<String> listFiles(String path, String pattern) {
-        Path dir = Path.of(path);
-        if (!Files.exists(dir)) {
-            throw new FileSystemException("Path does not exist: " + path);
-        }
+        validatePath(path, "Path does not exist");
         
-        try (Stream<Path> stream = Files.list(dir)) {
+        try (Stream<Path> stream = Files.list(Path.of(path))) {
             return stream
                 .filter(Files::isRegularFile)
                 .map(p -> p.getFileName().toString())
                 .filter(name -> matchGlob(name, pattern))
                 .toList();
         } catch (IOException e) {
-            throw new FileSystemException("Failed to list files", e);
+            throw new FileSystemException("Failed to list files at: " + path, e);
         }
     }
     
@@ -76,6 +70,12 @@ public class LocalFileSystem implements FileSystemStrategy {
     @Override
     public void disconnect() {
         // 本地文件系统无需断开连接
+    }
+    
+    private void validatePath(String path, String message) {
+        if (!Files.exists(Path.of(path))) {
+            throw new FileSystemException(message + ": " + path);
+        }
     }
     
     private boolean matchGlob(String name, String pattern) {
