@@ -1,6 +1,7 @@
 package com.filecollection.strategy;
 
 import com.filecollection.exception.FileSystemException;
+import com.filecollection.util.GlobUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -79,10 +80,6 @@ public class LocalFileSystem implements FileSystemStrategy {
     }
     
     private boolean matchGlob(String name, String pattern) {
-        String regex = pattern
-            .replace(".", "\\.")
-            .replace("*", ".*")
-            .replace("?", ".");
-        return name.matches(regex);
+        return GlobUtils.matchGlob(name, pattern);
     }
 }

@@ -1,5 +1,6 @@
 package com.filecollection.core;
 
+import com.filecollection.exception.FileSystemException;
 import com.filecollection.strategy.FileSystemStrategy;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +47,7 @@ public class FileCopier {
                 log.debug("File copied successfully: {}", targetPath);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to copy file: " + sourcePath, e);
+            throw new FileSystemException("Failed to copy file: " + sourcePath, e);
         }
     }
 }

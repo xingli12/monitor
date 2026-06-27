@@ -177,7 +177,9 @@ public class CollectionService {
     }
     
     private String buildPath(String base, String fileName) {
-        return base + File.separator + fileName;
+        // 统一使用 / 作为路径分隔符，兼容 FTP/CIFS/LOCAL
+        String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        return normalizedBase + "/" + fileName;
     }
     
     private FileSystemStrategy createFileSystem(FileCollectionProperties.UpstreamConfig config) {

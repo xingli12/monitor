@@ -1,13 +1,12 @@
 package com.filecollection.strategy;
 
+import com.filecollection.util.GlobUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
 public class FtpFileSystem implements FileSystemStrategy {
@@ -35,7 +34,13 @@ public class FtpFileSystem implements FileSystemStrategy {
         try {
             ftpClient = new FTPClient();
             ftpClient.connect(host, port);
-            ftpClient.login(username, password);
+            
+            boolean loginSuccess = ftpClient.login(username, password);
+            if (!loginSuccess) {
+                throw new com.filecollection.exception.FileSystemException(
+                    "FTP login failed for user: " + username + " at " + host);
+            }
+            
             ftpClient.enterLocalPassiveMode();
             ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE);
             log.info("Connected to FTP server: {}:{}", host, port);
@@ -45,10 +50,10 @@ public class FtpFileSystem implements FileSystemStrategy {
     }
     
     @Override
-    public List<String> listFiles(String path, String pattern) throws com.filecollection.exception.FileSystemException {
+    public java.util.List<String> listFiles(String path, String pattern) throws com.filecollection.exception.FileSystemException {
         try {
             FTPFile[] ftpFiles = ftpClient.listFiles(path);
-            List<String> files = new ArrayList<>();
+            java.util.List<String> files = new java.util.ArrayList<>();
             
             for (FTPFile ftpFile : ftpFiles) {
                 if (ftpFile.isFile() && matchGlob(ftpFile.getName(), pattern)) {
@@ -64,7 +69,12 @@ public class FtpFileSystem implements FileSystemStrategy {
     @Override
     public InputStream readFile(String filePath) throws com.filecollection.exception.FileSystemException {
         try {
-            return ftpClient.retrieveFileStream(filePath);
+            InputStream inputStream = ftpClient.retrieveFileStream(filePath);
+            if (inputStream == null) {
+                throw new com.filecollection.exception.FileSystemException(
+                    "Failed to retrieve file: " + filePath + " - " + ftpClient.getReplyString());
+            }
+            return new FtpInputStream(inputStream, ftpClient);
         } catch (IOException e) {
             throw new com.filecollection.exception.FileSystemException("Failed to read file: " + filePath, e);
         }
@@ -98,26 +108,39 @@ public class FtpFileSystem implements FileSystemStrategy {
         }
     }
     
-    public static List<String> parseFileList(String listing) {
-        List<String> files = new ArrayList<>();
-        String[] lines = listing.split("\n");
-        for (String line : lines) {
-            line = line.trim();
-            if (!line.isEmpty() && !line.startsWith("total")) {
-                String[] parts = line.split("\\s+");
-                if (parts.length >= MIN_LIST_COLUMNS) {
-                    files.add(parts[parts.length - 1]);
-                }
-            }
-        }
-        return files;
+    private boolean matchGlob(String name, String pattern) {
+        return GlobUtils.matchGlob(name, pattern);
     }
     
-    private boolean matchGlob(String name, String pattern) {
-        String regex = pattern
-            .replace(".", "\\.")
-            .replace("*", ".*")
-            .replace("?", ".");
-        return name.matches(regex);
+    /**
+     * FTP InputStream wrapper that calls completePendingCommand on close.
+     */
+    private static class FtpInputStream extends InputStream {
+        private final InputStream delegate;
+        private final FTPClient client;
+        
+        FtpInputStream(InputStream delegate, FTPClient client) {
+            this.delegate = delegate;
+            this.client = client;
+        }
+        
+        @Override
+        public int read() throws IOException {
+            return delegate.read();
+        }
+        
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            return delegate.read(b, off, len);
+        }
+        
+        @Override
+        public void close() throws IOException {
+            try {
+                delegate.close();
+            } finally {
+                client.completePendingCommand();
+            }
+        }
     }
 }

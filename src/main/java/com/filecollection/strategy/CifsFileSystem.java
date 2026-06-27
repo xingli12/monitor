@@ -1,5 +1,6 @@
 package com.filecollection.strategy;
 
+import com.filecollection.util.GlobUtils;
 import com.hierynomus.msdtyp.AccessMask;
 import com.hierynomus.mssmb2.SMB2CreateDisposition;
 import com.hierynomus.mssmb2.SMB2ShareAccess;
@@ -168,10 +169,6 @@ public class CifsFileSystem implements FileSystemStrategy {
     }
     
     private boolean matchGlob(String name, String pattern) {
-        String regex = pattern
-            .replace(".", "\\.")
-            .replace("*", ".*")
-            .replace("?", ".");
-        return name.matches(regex);
+        return GlobUtils.matchGlob(name, pattern);
     }
 }
