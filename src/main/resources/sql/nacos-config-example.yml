@@ -1,0 +1,42 @@
+# ============================================
+# 文件归集系统 - Nacos 配置示例
+# 配置 Data ID: file-collection.yml
+# Group: DEFAULT_GROUP
+# ============================================
+
+file-collection:
+  # 全局限速 (bytes per second)
+  # 10MB/s = 10 * 1024 * 1024
+  rate-limit: 10485760
+  
+  # 上游源配置
+  upstreams:
+    - name: ftp-server-01
+      type: FTP
+      host: 192.168.1.100
+      port: 21
+      username: ftpuser
+      password: ftppass
+      path: /data/incoming
+      file-pattern: "*.*"
+      
+    - name: cifs-share-01
+      type: CIFS
+      host: 192.168.1.200
+      share-name: shared
+      username: domain\user
+      password: cifspass
+      path: /incoming
+      file-pattern: "*.csv"
+      
+    - name: local-source-01
+      type: LOCAL
+      path: /data/local/incoming
+      file-pattern: "*.*"
+  
+  # 下游配置
+  downstreams:
+    - name: local-target-01
+      type: LOCAL
+      path: /data/collected
+      conflict-strategy: OVERWRITE
