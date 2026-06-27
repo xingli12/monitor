@@ -1,15 +1,11 @@
 package com.filecollection.controller;
 
 import com.filecollection.config.FileCollectionProperties;
-import com.filecollection.controller.dto.ExecuteRequest;
-import com.filecollection.controller.dto.TaskResponse;
+import com.filecollection.controller.dto.*;
 import com.filecollection.core.CollectionService;
 import com.filecollection.core.TaskManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/collection")
@@ -21,25 +17,27 @@ public class CollectionController {
     private final FileCollectionProperties properties;
     
     @PostMapping("/execute")
-    public TaskResponse<Map<String, Object>> execute(@RequestBody(required = false) ExecuteRequest request) {
+    public TaskResponse<ExecuteResponse> execute(@RequestBody(required = false) ExecuteRequest request) {
         try {
             var taskStatus = collectionService.executeCollection(
                 request != null ? request.getUpstreamNames() : null
             );
             
-            Map<String, Object> data = new HashMap<>();
-            data.put("taskId", taskStatus.getTaskId());
-            data.put("status", taskStatus.getStatus());
+            TaskSummary summary = new TaskSummary(
+                taskStatus.getTotalFiles(),
+                taskStatus.getSuccessCount(),
+                taskStatus.getFailCount(),
+                taskStatus.getTotalBytes(),
+                taskStatus.getDurationMs()
+            );
             
-            Map<String, Object> summary = new HashMap<>();
-            summary.put("totalFiles", taskStatus.getTotalFiles());
-            summary.put("successCount", taskStatus.getSuccessCount());
-            summary.put("failCount", taskStatus.getFailCount());
-            summary.put("totalBytes", taskStatus.getTotalBytes());
-            summary.put("durationMs", taskStatus.getDurationMs());
-            data.put("summary", summary);
+            ExecuteResponse response = new ExecuteResponse(
+                taskStatus.getTaskId(),
+                taskStatus.getStatus(),
+                summary
+            );
             
-            return TaskResponse.success(data);
+            return TaskResponse.success(response);
         } catch (Exception e) {
             return TaskResponse.error(e.getMessage());
         }
@@ -55,11 +53,12 @@ public class CollectionController {
     }
     
     @GetMapping("/config")
-    public TaskResponse<Map<String, Object>> getConfig() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("rateLimit", properties.getRateLimit());
-        config.put("upstreamCount", properties.getUpstreams().size());
-        config.put("downstreamCount", properties.getDownstreams().size());
+    public TaskResponse<ConfigResponse> getConfig() {
+        ConfigResponse config = new ConfigResponse(
+            properties.getRateLimit(),
+            properties.getUpstreams().size(),
+            properties.getDownstreams().size()
+        );
         return TaskResponse.success(config);
     }
 }

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class CollectionService {
+    
+    private static final String STATUS_SUCCESS = "SUCCESS";
+    private static final String STATUS_FAILED = "FAILED";
     
     private final FileCollectionProperties properties;
     private final FileCopier fileCopier;
@@ -36,91 +40,15 @@ public class CollectionService {
         List<String> errors = new ArrayList<>();
         
         try {
-            // 获取要执行的上游列表
-            List<FileCollectionProperties.UpstreamConfig> upstreams = properties.getUpstreams();
-            if (upstreamNames != null && !upstreamNames.isEmpty()) {
-                upstreams = upstreams.stream()
-                    .filter(u -> upstreamNames.contains(u.getName()))
-                    .toList();
-            }
+            List<FileCollectionProperties.UpstreamConfig> upstreams = filterUpstreams(upstreamNames);
             
-            // 遍历每个上游
             for (FileCollectionProperties.UpstreamConfig upstream : upstreams) {
-                FileSystemStrategy sourceFs = createFileSystem(upstream);
-                
-                try {
-                    sourceFs.connect();
-                    log.info("Connected to upstream: {}", upstream.getName());
-                    
-                    List<String> files = sourceFs.listFiles(upstream.getPath(), upstream.getFilePattern());
-                    log.info("Found {} files in upstream: {}", files.size(), upstream.getName());
-                    
-                    // 遍历每个文件，拷贝到所有下游
-                    for (String fileName : files) {
-                        String sourcePath = upstream.getPath() + "/" + fileName;
-                        long fileSize = sourceFs.getFileSize(sourcePath);
-                        
-                        for (FileCollectionProperties.DownstreamConfig downstream : properties.getDownstreams()) {
-                            String targetPath = downstream.getPath() + "/" + fileName;
-                            
-                            try {
-                                long copyStart = System.currentTimeMillis();
-                                fileCopier.copyFile(sourceFs, sourcePath, new LocalFileSystem(downstream.getPath(), "*.*"), targetPath);
-                                long copyDuration = System.currentTimeMillis() - copyStart;
-                                
-                                // 记录文件元数据
-                                FileMetadata metadata = new FileMetadata();
-                                metadata.setFileName(fileName);
-                                metadata.setFilePath(targetPath);
-                                metadata.setFileSize(fileSize);
-                                metadata.setUpstreamName(upstream.getName());
-                                metadata.setCopyTime(LocalDateTime.now());
-                                metadata.setStatus("SUCCESS");
-                                fileMetadataMapper.insert(metadata);
-                                
-                                // 记录操作日志
-                                OperationLog opLog = new OperationLog();
-                                opLog.setTaskId(taskId);
-                                opLog.setUpstreamName(upstream.getName());
-                                opLog.setSourcePath(sourcePath);
-                                opLog.setTargetPath(targetPath);
-                                opLog.setFileSize(fileSize);
-                                opLog.setCopyDuration(copyDuration);
-                                opLog.setStatus("SUCCESS");
-                                opLog.setCreateTime(LocalDateTime.now());
-                                operationLogMapper.insert(opLog);
-                                
-                                successCount++;
-                                totalBytes += fileSize;
-                                log.debug("File copied: {} -> {} ({}ms)", sourcePath, targetPath, copyDuration);
-                                
-                            } catch (Exception e) {
-                                failCount++;
-                                errors.add(fileName + ": " + e.getMessage());
-                                log.error("Failed to copy file: {}", sourcePath, e);
-                                
-                                // 记录失败日志
-                                OperationLog opLog = new OperationLog();
-                                opLog.setTaskId(taskId);
-                                opLog.setUpstreamName(upstream.getName());
-                                opLog.setSourcePath(sourcePath);
-                                opLog.setTargetPath(targetPath);
-                                opLog.setFileSize(fileSize);
-                                opLog.setStatus("FAILED");
-                                opLog.setErrorMessage(e.getMessage());
-                                opLog.setCreateTime(LocalDateTime.now());
-                                operationLogMapper.insert(opLog);
-                            }
-                        }
-                        totalFiles++;
-                    }
-                    
-                } catch (Exception e) {
-                    log.error("Failed to process upstream: {}", upstream.getName(), e);
-                    errors.add(upstream.getName() + ": " + e.getMessage());
-                } finally {
-                    sourceFs.disconnect();
-                }
+                var result = processUpstream(taskId, upstream);
+                totalFiles += result.totalFiles;
+                successCount += result.successCount;
+                failCount += result.failCount;
+                totalBytes += result.totalBytes;
+                errors.addAll(result.errors);
             }
             
             long durationMs = System.currentTimeMillis() - startTime;
@@ -137,6 +65,121 @@ public class CollectionService {
         return taskManager.getTask(taskId);
     }
     
+    private List<FileCollectionProperties.UpstreamConfig> filterUpstreams(List<String> upstreamNames) {
+        List<FileCollectionProperties.UpstreamConfig> upstreams = properties.getUpstreams();
+        if (upstreamNames != null && !upstreamNames.isEmpty()) {
+            upstreams = upstreams.stream()
+                .filter(u -> upstreamNames.contains(u.getName()))
+                .toList();
+        }
+        return upstreams;
+    }
+    
+    private UpstreamResult processUpstream(String taskId, FileCollectionProperties.UpstreamConfig upstream) {
+        UpstreamResult result = new UpstreamResult();
+        FileSystemStrategy sourceFs = createFileSystem(upstream);
+        
+        try {
+            sourceFs.connect();
+            log.info("Connected to upstream: {}", upstream.getName());
+            
+            List<String> files = sourceFs.listFiles(upstream.getPath(), upstream.getFilePattern());
+            log.info("Found {} files in upstream: {}", files.size(), upstream.getName());
+            
+            for (String fileName : files) {
+                var fileResult = processFile(taskId, upstream, sourceFs, fileName);
+                result.totalFiles++;
+                result.successCount += fileResult.successCount;
+                result.failCount += fileResult.failCount;
+                result.totalBytes += fileResult.totalBytes;
+                result.errors.addAll(fileResult.errors);
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to process upstream: {}", upstream.getName(), e);
+            result.errors.add(upstream.getName() + ": " + e.getMessage());
+        } finally {
+            sourceFs.disconnect();
+        }
+        
+        return result;
+    }
+    
+    private FileResult processFile(String taskId, FileCollectionProperties.UpstreamConfig upstream,
+                                   FileSystemStrategy sourceFs, String fileName) {
+        FileResult result = new FileResult();
+        String sourcePath = buildPath(upstream.getPath(), fileName);
+        long fileSize = sourceFs.getFileSize(sourcePath);
+        
+        for (FileCollectionProperties.DownstreamConfig downstream : properties.getDownstreams()) {
+            String targetPath = buildPath(downstream.getPath(), fileName);
+            
+            try {
+                long copyDuration = copyFileWithTiming(sourceFs, sourcePath, downstream, targetPath);
+                recordSuccess(taskId, upstream.getName(), sourcePath, targetPath, fileSize, copyDuration);
+                result.successCount++;
+                result.totalBytes += fileSize;
+                log.debug("File copied: {} -> {} ({}ms)", sourcePath, targetPath, copyDuration);
+                
+            } catch (Exception e) {
+                result.failCount++;
+                result.errors.add(fileName + ": " + e.getMessage());
+                log.error("Failed to copy file: {}", sourcePath, e);
+                recordFailure(taskId, upstream.getName(), sourcePath, targetPath, fileSize, e.getMessage());
+            }
+        }
+        
+        return result;
+    }
+    
+    private long copyFileWithTiming(FileSystemStrategy sourceFs, String sourcePath,
+                                    FileCollectionProperties.DownstreamConfig downstream, String targetPath) {
+        long copyStart = System.currentTimeMillis();
+        fileCopier.copyFile(sourceFs, sourcePath, new LocalFileSystem(downstream.getPath(), "*.*"), targetPath);
+        return System.currentTimeMillis() - copyStart;
+    }
+    
+    private void recordSuccess(String taskId, String upstreamName, String sourcePath, 
+                               String targetPath, long fileSize, long copyDuration) {
+        FileMetadata metadata = new FileMetadata();
+        metadata.setFileName(new File(targetPath).getName());
+        metadata.setFilePath(targetPath);
+        metadata.setFileSize(fileSize);
+        metadata.setUpstreamName(upstreamName);
+        metadata.setCopyTime(LocalDateTime.now());
+        metadata.setStatus(STATUS_SUCCESS);
+        fileMetadataMapper.insert(metadata);
+        
+        OperationLog opLog = createOperationLog(taskId, upstreamName, sourcePath, targetPath, fileSize);
+        opLog.setCopyDuration(copyDuration);
+        opLog.setStatus(STATUS_SUCCESS);
+        operationLogMapper.insert(opLog);
+    }
+    
+    private void recordFailure(String taskId, String upstreamName, String sourcePath,
+                               String targetPath, long fileSize, String errorMessage) {
+        OperationLog opLog = createOperationLog(taskId, upstreamName, sourcePath, targetPath, fileSize);
+        opLog.setStatus(STATUS_FAILED);
+        opLog.setErrorMessage(errorMessage);
+        operationLogMapper.insert(opLog);
+    }
+    
+    private OperationLog createOperationLog(String taskId, String upstreamName, String sourcePath,
+                                            String targetPath, long fileSize) {
+        OperationLog opLog = new OperationLog();
+        opLog.setTaskId(taskId);
+        opLog.setUpstreamName(upstreamName);
+        opLog.setSourcePath(sourcePath);
+        opLog.setTargetPath(targetPath);
+        opLog.setFileSize(fileSize);
+        opLog.setCreateTime(LocalDateTime.now());
+        return opLog;
+    }
+    
+    private String buildPath(String base, String fileName) {
+        return base + File.separator + fileName;
+    }
+    
     private FileSystemStrategy createFileSystem(FileCollectionProperties.UpstreamConfig config) {
         return switch (config.getType().toUpperCase()) {
             case "FTP" -> new FtpFileSystem(config.getHost(), config.getPort(), 
@@ -146,5 +189,22 @@ public class CollectionService {
             case "LOCAL" -> new LocalFileSystem(config.getPath(), config.getFilePattern());
             default -> throw new IllegalArgumentException("Unknown file system type: " + config.getType());
         };
+    }
+    
+    @lombok.Data
+    private static class UpstreamResult {
+        private int totalFiles = 0;
+        private int successCount = 0;
+        private int failCount = 0;
+        private long totalBytes = 0;
+        private List<String> errors = new ArrayList<>();
+    }
+    
+    @lombok.Data
+    private static class FileResult {
+        private int successCount = 0;
+        private int failCount = 0;
+        private long totalBytes = 0;
+        private List<String> errors = new ArrayList<>();
     }
 }
