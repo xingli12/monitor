@@ -52,13 +52,44 @@ public class CifsFileSystem implements FileSystemStrategy {
     @Override
     public List<String> listFiles(String path, String pattern) throws com.filecollection.exception.FileSystemException {
         List<String> files = new ArrayList<>();
-        try (var dir = share.openFolder(path, EnumSet.of(AccessMask.GENERIC_READ), null, EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ), null, null)) {
-            for (var entry : dir.list()) {
-                if (!entry.isDirectory() && matchGlob(entry.getName(), pattern)) {
-                    files.add(entry.getName());
+        try (com.hierynomus.smbj.share.Directory dir = share.openDirectory(path, EnumSet.of(AccessMask.GENERIC_READ), null, EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ), null, null)) {
+            // list() 返回 FileIdBothDirectoryInformation 列表
+            List<?> entries = dir.list();
+            for (Object entry : entries) {
+                // 使用反射获取文件名（避免编译时依赖特定类）
+                String fileName = null;
+                try {
+                    var method = entry.getClass().getMethod("getFileName");
+                    fileName = (String) method.invoke(entry);
+                } catch (Exception e) {
+                    // 如果无法获取文件名，跳过
+                    continue;
+                }
+                
+                // 跳过 . 和 .. 目录
+                if (fileName == null || ".".equals(fileName) || "..".equals(fileName)) {
+                    continue;
+                }
+                
+                // 判断是否为文件（非目录）
+                try {
+                    var isDirMethod = entry.getClass().getMethod("getFileAttributes");
+                    var attrs = isDirMethod.invoke(entry);
+                    if (attrs != null) {
+                        var isDir = attrs.getClass().getMethod("isDirectory");
+                        if ((Boolean) isDir.invoke(attrs)) {
+                            continue;
+                        }
+                    }
+                } catch (Exception e) {
+                    // 如果无法判断，假设是文件
+                }
+                
+                if (matchGlob(fileName, pattern)) {
+                    files.add(fileName);
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new com.filecollection.exception.FileSystemException("Failed to list files", e);
         }
         return files;
@@ -76,7 +107,7 @@ public class CifsFileSystem implements FileSystemStrategy {
                 null
             );
             return smbFile.getInputStream();
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new com.filecollection.exception.FileSystemException("Failed to read file: " + filePath, e);
         }
     }
@@ -93,7 +124,7 @@ public class CifsFileSystem implements FileSystemStrategy {
             );
             OutputStream out = smbFile.getOutputStream()) {
             content.transferTo(out);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new com.filecollection.exception.FileSystemException("Failed to write file: " + targetPath, e);
         }
     }
@@ -109,7 +140,7 @@ public class CifsFileSystem implements FileSystemStrategy {
                 null
             )) {
             return smbFile.getFileInformation().getStandardInformation().getEndOfFile();
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new com.filecollection.exception.FileSystemException("Failed to get file size: " + filePath, e);
         }
     }
