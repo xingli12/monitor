@@ -1,25 +1,34 @@
 package com.filecollection.util;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 public final class GlobUtils {
+    
+    private static final Map<String, Pattern> PATTERN_CACHE = new ConcurrentHashMap<>();
     
     private GlobUtils() {
     }
     
     /**
-     * 将 glob 模式转换为正则表达式
-     * 支持 *, ?, [abc] 等 glob 语法
+     * 将 glob 模式转换为正则表达式并匹配
      */
     public static boolean matchGlob(String name, String pattern) {
-        String regex = globToRegex(pattern);
-        return Pattern.matches(regex, name);
+        return getCompiledPattern(pattern).matcher(name).matches();
     }
     
     /**
-     * 将 glob 模式转换为正则表达式字符串
+     * 获取编译后的正则 Pattern（带缓存）
      */
-    public static String globToRegex(String glob) {
+    private static Pattern getCompiledPattern(String glob) {
+        return PATTERN_CACHE.computeIfAbsent(glob, GlobUtils::compileGlob);
+    }
+    
+    /**
+     * 将 glob 模式编译为 Pattern
+     */
+    private static Pattern compileGlob(String glob) {
         StringBuilder regex = new StringBuilder("^");
         int i = 0;
         while (i < glob.length()) {
@@ -32,17 +41,19 @@ public final class GlobUtils {
                     if (closeIndex == -1) {
                         regex.append("\\[");
                     } else {
-                        regex.append(Pattern.quote(glob.substring(i, closeIndex + 1)));
+                        // 保留括号内容作为正则字符类
+                        String bracketContent = glob.substring(i, closeIndex + 1);
+                        regex.append(bracketContent);
                         i = closeIndex;
                     }
                 }
                 case '(', ')', '+', '{', '}', '^', '$', '|', '.', '\\' -> 
-                    regex.append(Pattern.quote(String.valueOf(c)));
+                    regex.append("\\").append(c);
                 default -> regex.append(c);
             }
             i++;
         }
         regex.append("$");
-        return regex.toString();
+        return Pattern.compile(regex.toString());
     }
 }

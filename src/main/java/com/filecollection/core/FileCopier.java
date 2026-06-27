@@ -10,12 +10,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 
 @Slf4j
 public class FileCopier {
     
     private static final int BUFFER_SIZE = 8192;
+    private static final String TEMP_SUFFIX = ".tmp";
     
     private final RateLimiter rateLimiter;
     
@@ -27,13 +29,16 @@ public class FileCopier {
                          FileSystemStrategy targetFs, String targetPath) {
         log.debug("Copying file: {} -> {}", sourcePath, targetPath);
         
-        try (InputStream in = sourceFs.readFile(sourcePath)) {
-            Path target = Path.of(targetPath);
+        Path target = Path.of(targetPath);
+        Path tempTarget = Path.of(targetPath + TEMP_SUFFIX);
+        
+        try {
             Files.createDirectories(target.getParent());
             
-            try (OutputStream out = Files.newOutputStream(target, 
-                    StandardOpenOption.CREATE, 
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (InputStream in = sourceFs.readFile(sourcePath);
+                 OutputStream out = Files.newOutputStream(tempTarget, 
+                         StandardOpenOption.CREATE, 
+                         StandardOpenOption.TRUNCATE_EXISTING)) {
                 
                 byte[] buffer = new byte[BUFFER_SIZE];
                 int bytesRead;
@@ -44,10 +49,27 @@ public class FileCopier {
                 }
                 
                 out.flush();
-                log.debug("File copied successfully: {}", targetPath);
             }
+            
+            // 原子重命名：成功后才替换目标文件
+            Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING);
+            log.debug("File copied successfully: {}", targetPath);
+            
         } catch (Exception e) {
+            // 清理临时文件
+            cleanupTempFile(tempTarget);
             throw new FileSystemException("Failed to copy file: " + sourcePath, e);
+        }
+    }
+    
+    private void cleanupTempFile(Path tempFile) {
+        try {
+            if (Files.exists(tempFile)) {
+                Files.delete(tempFile);
+                log.debug("Cleaned up temp file: {}", tempFile);
+            }
+        } catch (IOException ex) {
+            log.warn("Failed to cleanup temp file: {}", tempFile, ex);
         }
     }
 }

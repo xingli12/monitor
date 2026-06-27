@@ -14,6 +14,7 @@ import java.io.File;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
@@ -22,6 +23,7 @@ public class CollectionService {
     
     private static final String STATUS_SUCCESS = "SUCCESS";
     private static final String STATUS_FAILED = "FAILED";
+    private static final String ERROR_CONCURRENT_TASK = "Another collection task is already running";
     
     private final FileCollectionProperties properties;
     private final FileCopier fileCopier;
@@ -29,7 +31,24 @@ public class CollectionService {
     private final FileMetadataMapper fileMetadataMapper;
     private final OperationLogMapper operationLogMapper;
     
+    private final AtomicBoolean running = new AtomicBoolean(false);
+    
     public TaskManager.TaskStatus executeCollection(List<String> upstreamNames) {
+        if (!running.compareAndSet(false, true)) {
+            log.warn("Collection task rejected - another task is already running");
+            String taskId = taskManager.createTask();
+            taskManager.failTask(taskId, ERROR_CONCURRENT_TASK);
+            return taskManager.getTask(taskId);
+        }
+        
+        try {
+            return doExecuteCollection(upstreamNames);
+        } finally {
+            running.set(false);
+        }
+    }
+    
+    private TaskManager.TaskStatus doExecuteCollection(List<String> upstreamNames) {
         String taskId = taskManager.createTask();
         long startTime = System.currentTimeMillis();
         
