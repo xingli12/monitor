@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: file-collection
+  cloud:
+    nacos:
+      config:
+        server-addr: localhost:8848
+        file-extension: yml
+        group: DEFAULT_GROUP
+  datasource:
+    url: jdbc:oracle:thin:@localhost:1521:orcl
+    username: system
+    password: password
+    driver-class-name: oracle.jdbc.OracleDriver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  global-config:
+    db-config:
+      id-type: ASSIGN_ID
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+logging:
+  level:
+    com.filecollection: DEBUG
+    org.apache.commons.net: INFO
+    com.hierynomus.smbj: INFO
