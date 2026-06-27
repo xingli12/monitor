@@ -4,8 +4,6 @@ import com.filecollection.strategy.LocalFileSystem;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -24,8 +22,8 @@ class FileCopierTest {
         
         Path target = tempDir.resolve("target.txt");
         
-        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString(), "*.*");
-        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString());
+        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString());
         
         FileCopier copier = new FileCopier(1024 * 1024); // 1MB/s
         
@@ -45,8 +43,8 @@ class FileCopierTest {
         
         Path target = tempDir.resolve("empty_target.txt");
         
-        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString(), "*.*");
-        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString());
+        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString());
         
         FileCopier copier = new FileCopier(1024 * 1024);
         
@@ -70,8 +68,8 @@ class FileCopierTest {
         
         Path target = tempDir.resolve("large_target.txt");
         
-        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString(), "*.*");
-        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString());
+        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString());
         
         FileCopier copier = new FileCopier(1024 * 1024);
         
@@ -86,8 +84,8 @@ class FileCopierTest {
     @Test
     void shouldThrowExceptionWhenSourceFileNotFound() {
         // Given
-        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString(), "*.*");
-        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString());
+        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString());
         
         FileCopier copier = new FileCopier(1024 * 1024);
         
@@ -105,8 +103,8 @@ class FileCopierTest {
         
         Path target = tempDir.resolve("newdir/subdir/target.txt");
         
-        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString(), "*.*");
-        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString());
+        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString());
         
         FileCopier copier = new FileCopier(1024 * 1024);
         
@@ -127,8 +125,8 @@ class FileCopierTest {
         Path target = tempDir.resolve("target.txt");
         Files.writeString(target, "old content");
         
-        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString(), "*.*");
-        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString());
+        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString());
         
         FileCopier copier = new FileCopier(1024 * 1024);
         
@@ -151,8 +149,8 @@ class FileCopierTest {
         
         Path target = tempDir.resolve("binary_target.dat");
         
-        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString(), "*.*");
-        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem sourceFs = new LocalFileSystem(tempDir.toString());
+        LocalFileSystem targetFs = new LocalFileSystem(tempDir.toString());
         
         FileCopier copier = new FileCopier(1024 * 1024);
         

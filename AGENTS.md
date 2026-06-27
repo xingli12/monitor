@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## AI 交互规范
+
+- 回答用中文，要简洁
+
 ## 项目概述
 
 文件归集系统 - 从上游文件源（FTP/CIFS/本地目录）限速拷贝文件到下游本地目录的 Spring Boot 应用。
@@ -30,7 +34,7 @@ mvn package -DskipTests
 
 ## 架构结构
 
-```
+```text
 src/main/java/com/filecollection/
 ├── config/           # Spring 配置、Nacos、属性映射
 ├── controller/       # REST API（POST /execute、GET /tasks/{id}、GET /config）

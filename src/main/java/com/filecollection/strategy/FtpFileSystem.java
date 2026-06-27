@@ -11,22 +11,18 @@ import java.io.InputStream;
 @Slf4j
 public class FtpFileSystem implements FileSystemStrategy {
     
-    private static final int MIN_LIST_COLUMNS = 8;
-    
     private final String host;
     private final int port;
     private final String username;
     private final String password;
-    private final String basePath;
     
     private FTPClient ftpClient;
     
-    public FtpFileSystem(String host, int port, String username, String password, String basePath) {
+    public FtpFileSystem(String host, int port, String username, String password) {
         this.host = host;
         this.port = port;
         this.username = username;
         this.password = password;
-        this.basePath = basePath;
     }
     
     @Override

@@ -155,7 +155,7 @@ public class CollectionService {
     private long copyFileWithTiming(FileSystemStrategy sourceFs, String sourcePath,
                                     FileCollectionProperties.DownstreamConfig downstream, String targetPath) {
         long copyStart = System.currentTimeMillis();
-        fileCopier.copyFile(sourceFs, sourcePath, new LocalFileSystem(downstream.getPath(), "*.*"), 
+        fileCopier.copyFile(sourceFs, sourcePath, new LocalFileSystem(downstream.getPath()), 
                            targetPath, downstream.getConflictStrategy());
         return System.currentTimeMillis() - copyStart;
     }
@@ -206,10 +206,10 @@ public class CollectionService {
     private FileSystemStrategy createFileSystem(FileCollectionProperties.UpstreamConfig config) {
         return switch (config.getType().toUpperCase()) {
             case "FTP" -> new FtpFileSystem(config.getHost(), config.getPort(), 
-                    config.getUsername(), config.getPassword(), config.getPath());
+                    config.getUsername(), config.getPassword());
             case "CIFS" -> new CifsFileSystem(config.getHost(), config.getShareName(),
-                    config.getUsername(), config.getPassword(), config.getPath());
-            case "LOCAL" -> new LocalFileSystem(config.getPath(), config.getFilePattern());
+                    config.getUsername(), config.getPassword());
+            case "LOCAL" -> new LocalFileSystem(config.getPath());
             default -> throw new IllegalArgumentException("Unknown file system type: " + config.getType());
         };
     }

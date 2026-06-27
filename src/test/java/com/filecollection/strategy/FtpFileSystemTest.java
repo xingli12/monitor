@@ -9,7 +9,7 @@ class FtpFileSystemTest {
     @Test
     void shouldCreateFtpFileSystem() {
         // Given & When
-        FtpFileSystem fs = new FtpFileSystem("localhost", 21, "user", "pass", "/data");
+        FtpFileSystem fs = new FtpFileSystem("localhost", 21, "user", "pass");
         
         // Then
         assertNotNull(fs);
@@ -18,7 +18,7 @@ class FtpFileSystemTest {
     @Test
     void shouldThrowExceptionWhenWriteFile() {
         // Given
-        FtpFileSystem fs = new FtpFileSystem("localhost", 21, "user", "pass", "/data");
+        FtpFileSystem fs = new FtpFileSystem("localhost", 21, "user", "pass");
         
         // When & Then
         assertThrows(UnsupportedOperationException.class, 
@@ -28,7 +28,7 @@ class FtpFileSystemTest {
     @Test
     void shouldHandleNullFileListGracefully() throws Exception {
         // Given
-        FtpFileSystem fs = new FtpFileSystem("localhost", 21, "user", "pass", "/data");
+        FtpFileSystem fs = new FtpFileSystem("localhost", 21, "user", "pass");
         org.apache.commons.net.ftp.FTPClient mockClient = org.mockito.Mockito.mock(org.apache.commons.net.ftp.FTPClient.class);
         org.mockito.Mockito.when(mockClient.listFiles(org.mockito.Mockito.anyString())).thenReturn(null);
         

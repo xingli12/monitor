@@ -24,7 +24,7 @@ class LocalFileSystemTest {
         Files.createFile(tempDir.resolve("data.txt"));
         Files.createFile(tempDir.resolve("report.csv"));
         
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When
         List<String> files = fs.listFiles(tempDir.toString(), "*.csv");
@@ -38,7 +38,7 @@ class LocalFileSystemTest {
     @Test
     void shouldReadAndWriteFile() throws Exception {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         String content = "test content";
         InputStream inputStream = new ByteArrayInputStream(content.getBytes());
         
@@ -55,7 +55,7 @@ class LocalFileSystemTest {
     @Test
     void shouldConnectSuccessfully() {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When & Then - 不抛异常即为成功
         assertDoesNotThrow(fs::connect);
@@ -64,7 +64,7 @@ class LocalFileSystemTest {
     @Test
     void shouldThrowExceptionWhenConnectToNonExistentPath() {
         // Given
-        LocalFileSystem fs = new LocalFileSystem("/non/existent/path", "*.*");
+        LocalFileSystem fs = new LocalFileSystem("/non/existent/path");
         
         // When & Then
         FileSystemException exception = assertThrows(FileSystemException.class, fs::connect);
@@ -78,7 +78,7 @@ class LocalFileSystemTest {
         String content = "hello world";
         Files.writeString(file, content);
         
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When
         InputStream inputStream = fs.readFile(file.toString());
@@ -91,7 +91,7 @@ class LocalFileSystemTest {
     @Test
     void shouldThrowExceptionWhenReadNonExistentFile() {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When & Then
         FileSystemException exception = assertThrows(FileSystemException.class, 
@@ -106,7 +106,7 @@ class LocalFileSystemTest {
         String content = "12345";
         Files.writeString(file, content);
         
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When
         long size = fs.getFileSize(file.toString());
@@ -118,7 +118,7 @@ class LocalFileSystemTest {
     @Test
     void shouldThrowExceptionWhenGetSizeOfNonExistentFile() {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When & Then
         FileSystemException exception = assertThrows(FileSystemException.class, 
@@ -129,7 +129,7 @@ class LocalFileSystemTest {
     @Test
     void shouldThrowExceptionWhenListFilesInNonExistentPath() {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When & Then
         FileSystemException exception = assertThrows(FileSystemException.class, 
@@ -140,7 +140,7 @@ class LocalFileSystemTest {
     @Test
     void shouldDisconnectWithoutError() {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         
         // When & Then - disconnect 是空操作，不应抛异常
         assertDoesNotThrow(fs::disconnect);
@@ -149,7 +149,7 @@ class LocalFileSystemTest {
     @Test
     void shouldWriteFileToNewDirectory() throws Exception {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         String content = "new dir content";
         InputStream inputStream = new ByteArrayInputStream(content.getBytes());
         String targetPath = tempDir.resolve("subdir/nested/file.txt").toString();
@@ -165,7 +165,7 @@ class LocalFileSystemTest {
     @Test
     void shouldOverwriteExistingFile() throws Exception {
         // Given
-        LocalFileSystem fs = new LocalFileSystem(tempDir.toString(), "*.*");
+        LocalFileSystem fs = new LocalFileSystem(tempDir.toString());
         Path file = tempDir.resolve("overwrite.txt");
         Files.writeString(file, "old content");
         

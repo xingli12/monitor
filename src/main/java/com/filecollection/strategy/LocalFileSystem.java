@@ -12,11 +12,9 @@ import java.util.stream.Stream;
 public class LocalFileSystem implements FileSystemStrategy {
     
     private final String basePath;
-    private final String filePattern;
     
-    public LocalFileSystem(String basePath, String filePattern) {
+    public LocalFileSystem(String basePath) {
         this.basePath = basePath;
-        this.filePattern = filePattern;
     }
     
     @Override

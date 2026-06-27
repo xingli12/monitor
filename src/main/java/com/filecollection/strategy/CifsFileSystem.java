@@ -29,18 +29,16 @@ public class CifsFileSystem implements FileSystemStrategy {
     private final String shareName;
     private final String username;
     private final String password;
-    private final String basePath;
     
     private SMBClient client;
     private DiskShare share;
     private com.hierynomus.smbj.session.Session session;
     
-    public CifsFileSystem(String host, String shareName, String username, String password, String basePath) {
+    public CifsFileSystem(String host, String shareName, String username, String password) {
         this.host = host;
         this.shareName = shareName;
         this.username = username;
         this.password = password;
-        this.basePath = basePath;
     }
     
     @Override
@@ -57,6 +55,9 @@ public class CifsFileSystem implements FileSystemStrategy {
     
     @Override
     public List<String> listFiles(String path, String pattern) throws com.filecollection.exception.FileSystemException {
+        if (!share.folderExists(path)) {
+            throw new com.filecollection.exception.FileSystemException("Path does not exist on share: " + path);
+        }
         List<String> files = new ArrayList<>();
         try (com.hierynomus.smbj.share.Directory dir = share.openDirectory(path, EnumSet.of(AccessMask.GENERIC_READ), null, EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ), null, null)) {
             List<?> entries = dir.list();

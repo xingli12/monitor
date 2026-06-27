@@ -21,13 +21,15 @@ class CifsFileSystemTest {
     
     @Test
     void shouldIdentifyFilesAndDirectories() {
-        CifsFileSystem fs = new CifsFileSystem("host", "share", "user", "pass", "path");
+        CifsFileSystem fs = new CifsFileSystem("host", "share", "user", "pass");
         
+        @SuppressWarnings("unused")
         class FileEntry {
             public Long getFileAttributes() {
                 return 0x00000080L; // FILE_ATTRIBUTE_NORMAL
             }
         }
+        @SuppressWarnings("unused")
         class DirectoryEntry {
             public Long getFileAttributes() {
                 return 0x00000010L; // FILE_ATTRIBUTE_DIRECTORY
