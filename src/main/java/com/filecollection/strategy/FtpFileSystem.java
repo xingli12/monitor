@@ -12,6 +12,8 @@ import java.util.List;
 @Slf4j
 public class FtpFileSystem implements FileSystemStrategy {
     
+    private static final int MIN_LIST_COLUMNS = 8;
+    
     private final String host;
     private final int port;
     private final String username;
@@ -36,7 +38,7 @@ public class FtpFileSystem implements FileSystemStrategy {
             ftpClient.login(username, password);
             ftpClient.enterLocalPassiveMode();
             ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE);
-            log.info("Connected to FTP server: {}", host);
+            log.info("Connected to FTP server: {}:{}", host, port);
         } catch (IOException e) {
             throw new com.filecollection.exception.FileSystemException("Failed to connect to FTP server: " + host, e);
         }
@@ -55,7 +57,7 @@ public class FtpFileSystem implements FileSystemStrategy {
             }
             return files;
         } catch (IOException e) {
-            throw new com.filecollection.exception.FileSystemException("Failed to list files", e);
+            throw new com.filecollection.exception.FileSystemException("Failed to list files at: " + path, e);
         }
     }
     
@@ -70,7 +72,6 @@ public class FtpFileSystem implements FileSystemStrategy {
     
     @Override
     public void writeFile(String targetPath, InputStream content) throws com.filecollection.exception.FileSystemException {
-        // FTP 作为上游，不需要实现写入
         throw new UnsupportedOperationException("FTP upstream does not support write");
     }
     
@@ -78,10 +79,7 @@ public class FtpFileSystem implements FileSystemStrategy {
     public long getFileSize(String filePath) throws com.filecollection.exception.FileSystemException {
         try {
             FTPFile[] files = ftpClient.listFiles(filePath);
-            if (files.length > 0) {
-                return files[0].getSize();
-            }
-            return 0;
+            return files.length > 0 ? files[0].getSize() : 0;
         } catch (IOException e) {
             throw new com.filecollection.exception.FileSystemException("Failed to get file size: " + filePath, e);
         }
@@ -96,7 +94,7 @@ public class FtpFileSystem implements FileSystemStrategy {
                 log.info("Disconnected from FTP server: {}", host);
             }
         } catch (IOException e) {
-            log.error("Error disconnecting from FTP server", e);
+            log.error("Error disconnecting from FTP server: {}", host, e);
         }
     }
     
@@ -107,7 +105,7 @@ public class FtpFileSystem implements FileSystemStrategy {
             line = line.trim();
             if (!line.isEmpty() && !line.startsWith("total")) {
                 String[] parts = line.split("\\s+");
-                if (parts.length >= 8) {
+                if (parts.length >= MIN_LIST_COLUMNS) {
                     files.add(parts[parts.length - 1]);
                 }
             }

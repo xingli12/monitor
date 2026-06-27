@@ -19,6 +19,11 @@ import java.util.List;
 @Slf4j
 public class CifsFileSystem implements FileSystemStrategy {
     
+    private static final String UNC_PREFIX = "\\\\";
+    private static final String SMB_PREFIX = "smb://";
+    private static final String CURRENT_DIR = ".";
+    private static final String PARENT_DIR = "..";
+    
     private final String host;
     private final String shareName;
     private final String username;
@@ -53,44 +58,18 @@ public class CifsFileSystem implements FileSystemStrategy {
     public List<String> listFiles(String path, String pattern) throws com.filecollection.exception.FileSystemException {
         List<String> files = new ArrayList<>();
         try (com.hierynomus.smbj.share.Directory dir = share.openDirectory(path, EnumSet.of(AccessMask.GENERIC_READ), null, EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ), null, null)) {
-            // list() 返回 FileIdBothDirectoryInformation 列表
             List<?> entries = dir.list();
             for (Object entry : entries) {
-                // 使用反射获取文件名（避免编译时依赖特定类）
-                String fileName = null;
-                try {
-                    var method = entry.getClass().getMethod("getFileName");
-                    fileName = (String) method.invoke(entry);
-                } catch (Exception e) {
-                    // 如果无法获取文件名，跳过
+                String fileName = extractFileName(entry);
+                if (fileName == null || isSpecialDirectory(fileName)) {
                     continue;
                 }
-                
-                // 跳过 . 和 .. 目录
-                if (fileName == null || ".".equals(fileName) || "..".equals(fileName)) {
-                    continue;
-                }
-                
-                // 判断是否为文件（非目录）
-                try {
-                    var isDirMethod = entry.getClass().getMethod("getFileAttributes");
-                    var attrs = isDirMethod.invoke(entry);
-                    if (attrs != null) {
-                        var isDir = attrs.getClass().getMethod("isDirectory");
-                        if ((Boolean) isDir.invoke(attrs)) {
-                            continue;
-                        }
-                    }
-                } catch (Exception e) {
-                    // 如果无法判断，假设是文件
-                }
-                
-                if (matchGlob(fileName, pattern)) {
+                if (isFile(entry) && matchGlob(fileName, pattern)) {
                     files.add(fileName);
                 }
             }
         } catch (Exception e) {
-            throw new com.filecollection.exception.FileSystemException("Failed to list files", e);
+            throw new com.filecollection.exception.FileSystemException("Failed to list files at: " + path, e);
         }
         return files;
     }
@@ -153,12 +132,39 @@ public class CifsFileSystem implements FileSystemStrategy {
             if (client != null) client.close();
             log.info("Disconnected from CIFS share: {}", shareName);
         } catch (IOException e) {
-            log.error("Error disconnecting from CIFS server", e);
+            log.error("Error disconnecting from CIFS server: {}", shareName, e);
         }
     }
     
     public static boolean isSmbPath(String path) {
-        return path.startsWith("\\\\") || path.startsWith("smb://");
+        return path.startsWith(UNC_PREFIX) || path.startsWith(SMB_PREFIX);
+    }
+    
+    private String extractFileName(Object entry) {
+        try {
+            var method = entry.getClass().getMethod("getFileName");
+            return (String) method.invoke(entry);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    private boolean isSpecialDirectory(String fileName) {
+        return CURRENT_DIR.equals(fileName) || PARENT_DIR.equals(fileName);
+    }
+    
+    private boolean isFile(Object entry) {
+        try {
+            var attrsMethod = entry.getClass().getMethod("getFileAttributes");
+            var attrs = attrsMethod.invoke(entry);
+            if (attrs != null) {
+                var isDirMethod = attrs.getClass().getMethod("isDirectory");
+                return !(Boolean) isDirMethod.invoke(attrs);
+            }
+        } catch (Exception e) {
+            // 如果无法判断，假设是文件
+        }
+        return true;
     }
     
     private boolean matchGlob(String name, String pattern) {
