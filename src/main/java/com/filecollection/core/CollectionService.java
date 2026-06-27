@@ -154,7 +154,8 @@ public class CollectionService {
     private long copyFileWithTiming(FileSystemStrategy sourceFs, String sourcePath,
                                     FileCollectionProperties.DownstreamConfig downstream, String targetPath) {
         long copyStart = System.currentTimeMillis();
-        fileCopier.copyFile(sourceFs, sourcePath, new LocalFileSystem(downstream.getPath(), "*.*"), targetPath);
+        fileCopier.copyFile(sourceFs, sourcePath, new LocalFileSystem(downstream.getPath(), "*.*"), 
+                           targetPath, downstream.getConflictStrategy());
         return System.currentTimeMillis() - copyStart;
     }
     

@@ -18,6 +18,7 @@ public class FileCopier {
     
     private static final int BUFFER_SIZE = 8192;
     private static final String TEMP_SUFFIX = ".tmp";
+    private static final String STRATEGY_OVERWRITE = "OVERWRITE";
     
     private final RateLimiter rateLimiter;
     
@@ -27,13 +28,20 @@ public class FileCopier {
     
     public void copyFile(FileSystemStrategy sourceFs, String sourcePath, 
                          FileSystemStrategy targetFs, String targetPath) {
+        copyFile(sourceFs, sourcePath, targetFs, targetPath, STRATEGY_OVERWRITE);
+    }
+    
+    public void copyFile(FileSystemStrategy sourceFs, String sourcePath, 
+                         FileSystemStrategy targetFs, String targetPath, String conflictStrategy) {
         log.debug("Copying file: {} -> {}", sourcePath, targetPath);
         
         Path target = Path.of(targetPath);
         Path tempTarget = Path.of(targetPath + TEMP_SUFFIX);
         
         try {
-            Files.createDirectories(target.getParent());
+            if (target.getParent() != null) {
+                Files.createDirectories(target.getParent());
+            }
             
             try (InputStream in = sourceFs.readFile(sourcePath);
                  OutputStream out = Files.newOutputStream(tempTarget, 
@@ -51,8 +59,18 @@ public class FileCopier {
                 out.flush();
             }
             
-            // 原子重命名：成功后才替换目标文件
-            Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING);
+            // 根据冲突策略决定是否覆盖
+            if (STRATEGY_OVERWRITE.equalsIgnoreCase(conflictStrategy)) {
+                Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                // SKIP 策略：如果目标文件已存在则删除临时文件
+                if (Files.exists(target)) {
+                    cleanupTempFile(tempTarget);
+                    log.debug("File skipped (already exists): {}", targetPath);
+                    return;
+                }
+                Files.move(tempTarget, target);
+            }
             log.debug("File copied successfully: {}", targetPath);
             
         } catch (Exception e) {
