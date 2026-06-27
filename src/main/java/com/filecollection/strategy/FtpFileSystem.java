@@ -55,9 +55,11 @@ public class FtpFileSystem implements FileSystemStrategy {
             FTPFile[] ftpFiles = ftpClient.listFiles(path);
             java.util.List<String> files = new java.util.ArrayList<>();
             
-            for (FTPFile ftpFile : ftpFiles) {
-                if (ftpFile.isFile() && matchGlob(ftpFile.getName(), pattern)) {
-                    files.add(ftpFile.getName());
+            if (ftpFiles != null) {
+                for (FTPFile ftpFile : ftpFiles) {
+                    if (ftpFile.isFile() && matchGlob(ftpFile.getName(), pattern)) {
+                        files.add(ftpFile.getName());
+                    }
                 }
             }
             return files;
@@ -89,7 +91,7 @@ public class FtpFileSystem implements FileSystemStrategy {
     public long getFileSize(String filePath) throws com.filecollection.exception.FileSystemException {
         try {
             FTPFile[] files = ftpClient.listFiles(filePath);
-            return files.length > 0 ? files[0].getSize() : 0;
+            return (files != null && files.length > 0) ? files[0].getSize() : 0;
         } catch (IOException e) {
             throw new com.filecollection.exception.FileSystemException("Failed to get file size: " + filePath, e);
         }
@@ -115,29 +117,18 @@ public class FtpFileSystem implements FileSystemStrategy {
     /**
      * FTP InputStream wrapper that calls completePendingCommand on close.
      */
-    private static class FtpInputStream extends InputStream {
-        private final InputStream delegate;
+    private static class FtpInputStream extends java.io.FilterInputStream {
         private final FTPClient client;
         
         FtpInputStream(InputStream delegate, FTPClient client) {
-            this.delegate = delegate;
+            super(delegate);
             this.client = client;
-        }
-        
-        @Override
-        public int read() throws IOException {
-            return delegate.read();
-        }
-        
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            return delegate.read(b, off, len);
         }
         
         @Override
         public void close() throws IOException {
             try {
-                delegate.close();
+                super.close();
             } finally {
                 client.completePendingCommand();
             }

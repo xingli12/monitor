@@ -1,6 +1,8 @@
 package com.filecollection.core;
 
+import com.filecollection.config.FileCollectionProperties;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -13,10 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class TaskManager {
-    
+
     private static final long TASK_EXPIRY_MINUTES = 60;
-    
+
+    private final FileCollectionProperties properties;
     private final Map<String, TaskStatus> tasks = new ConcurrentHashMap<>();
     
     public String createTask() {
@@ -58,6 +62,7 @@ public class TaskManager {
     @Scheduled(fixedRate = 300000) // 每5分钟清理一次
     public void cleanupExpiredTasks() {
         LocalDateTime expiryTime = LocalDateTime.now().minusMinutes(TASK_EXPIRY_MINUTES);
+        LocalDateTime runningExpiryTime = LocalDateTime.now().minusHours(properties.getRunningTaskExpiryHours());
         Iterator<Map.Entry<String, TaskStatus>> iterator = tasks.entrySet().iterator();
         int removedCount = 0;
         
@@ -65,7 +70,20 @@ public class TaskManager {
             Map.Entry<String, TaskStatus> entry = iterator.next();
             TaskStatus task = entry.getValue();
             
-            if (task.getEndTime() != null && task.getEndTime().isBefore(expiryTime)) {
+            boolean shouldRemove = false;
+            if (task.getEndTime() != null) {
+                if (task.getEndTime().isBefore(expiryTime)) {
+                    shouldRemove = true;
+                }
+            } else if ("RUNNING".equals(task.getStatus()) && task.getStartTime() != null && task.getStartTime().isBefore(runningExpiryTime)) {
+                shouldRemove = true;
+                log.warn("Force removing stuck running task: {}", task.getTaskId());
+            } else if (task.getEndTime() == null && task.getStatus() != null && !"RUNNING".equals(task.getStatus())) {
+                // Other terminal states without endTime (e.g., stale PENDING/FAILED) should be cleaned up
+                shouldRemove = true;
+            }
+            
+            if (shouldRemove) {
                 iterator.remove();
                 removedCount++;
             }

@@ -42,6 +42,7 @@ public class CollectionService {
         }
         
         try {
+            fileCopier.setRateLimit(properties.getRateLimit());
             return doExecuteCollection(upstreamNames);
         } finally {
             running.set(false);

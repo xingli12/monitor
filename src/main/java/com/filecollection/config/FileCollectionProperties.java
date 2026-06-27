@@ -20,8 +20,10 @@ public class FileCollectionProperties {
     private static final String TYPE_FTP = "FTP";
     private static final String TYPE_CIFS = "CIFS";
     private static final String TYPE_LOCAL = "LOCAL";
-    
+    private static final int DEFAULT_RUNNING_TASK_EXPIRY_HOURS = 2;
+
     private long rateLimit = DEFAULT_RATE_LIMIT;
+    private int runningTaskExpiryHours = DEFAULT_RUNNING_TASK_EXPIRY_HOURS;
     private List<UpstreamConfig> upstreams = new ArrayList<>();
     private List<DownstreamConfig> downstreams = new ArrayList<>();
     

@@ -41,8 +41,11 @@ public final class GlobUtils {
                     if (closeIndex == -1) {
                         regex.append("\\[");
                     } else {
-                        // 保留括号内容作为正则字符类
+                        // 保留括号内容作为正则字符类，并转换否定形式 [!...] -> [^...]
                         String bracketContent = glob.substring(i, closeIndex + 1);
+                        if (bracketContent.startsWith("[!") && bracketContent.length() > 3) {
+                            bracketContent = "[^" + bracketContent.substring(2);
+                        }
                         regex.append(bracketContent);
                         i = closeIndex;
                     }

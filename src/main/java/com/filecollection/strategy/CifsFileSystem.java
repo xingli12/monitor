@@ -77,8 +77,9 @@ public class CifsFileSystem implements FileSystemStrategy {
     
     @Override
     public InputStream readFile(String filePath) throws com.filecollection.exception.FileSystemException {
+        File smbFile = null;
         try {
-            File smbFile = share.openFile(
+            smbFile = share.openFile(
                 filePath,
                 EnumSet.of(AccessMask.GENERIC_READ),
                 null,
@@ -86,15 +87,39 @@ public class CifsFileSystem implements FileSystemStrategy {
                 SMB2CreateDisposition.FILE_OPEN,
                 null
             );
-            return smbFile.getInputStream();
+            InputStream in = smbFile.getInputStream();
+            if (in == null) {
+                smbFile.close();
+                throw new com.filecollection.exception.FileSystemException("Failed to get input stream: " + filePath);
+            }
+            final File finalSmbFile = smbFile;
+            return new java.io.FilterInputStream(in) {
+                @Override
+                public void close() throws IOException {
+                    try {
+                        super.close();
+                    } finally {
+                        finalSmbFile.close();
+                    }
+                }
+            };
         } catch (Exception e) {
+            if (smbFile != null) {
+                try {
+                    smbFile.close();
+                } catch (Exception ex) {
+                    log.error("Failed to close SMB file handle after error: {}", filePath, ex);
+                }
+            }
             throw new com.filecollection.exception.FileSystemException("Failed to read file: " + filePath, e);
         }
     }
     
     @Override
     public void writeFile(String targetPath, InputStream content) throws com.filecollection.exception.FileSystemException {
-        try (File smbFile = share.openFile(
+        File smbFile = null;
+        try {
+            smbFile = share.openFile(
                 targetPath,
                 EnumSet.of(AccessMask.GENERIC_WRITE),
                 null,
@@ -102,9 +127,20 @@ public class CifsFileSystem implements FileSystemStrategy {
                 SMB2CreateDisposition.FILE_OVERWRITE_IF,
                 null
             );
-            OutputStream out = smbFile.getOutputStream()) {
+            OutputStream out = smbFile.getOutputStream();
+            if (out == null) {
+                smbFile.close();
+                throw new com.filecollection.exception.FileSystemException("Failed to get output stream: " + targetPath);
+            }
             content.transferTo(out);
         } catch (Exception e) {
+            if (smbFile != null) {
+                try {
+                    smbFile.close();
+                } catch (Exception ex) {
+                    log.error("Failed to close SMB file handle after error: {}", targetPath, ex);
+                }
+            }
             throw new com.filecollection.exception.FileSystemException("Failed to write file: " + targetPath, e);
         }
     }
@@ -154,13 +190,14 @@ public class CifsFileSystem implements FileSystemStrategy {
         return CURRENT_DIR.equals(fileName) || PARENT_DIR.equals(fileName);
     }
     
-    private boolean isFile(Object entry) {
+    boolean isFile(Object entry) {
         try {
             var attrsMethod = entry.getClass().getMethod("getFileAttributes");
             var attrs = attrsMethod.invoke(entry);
-            if (attrs != null) {
-                var isDirMethod = attrs.getClass().getMethod("isDirectory");
-                return !(Boolean) isDirMethod.invoke(attrs);
+            if (attrs instanceof Long attrsVal) {
+                // FILE_ATTRIBUTE_DIRECTORY flag value is 0x00000010L (16)
+                long directoryFlag = 0x00000010L;
+                return (attrsVal & directoryFlag) == 0;
             }
         } catch (Exception e) {
             // 如果无法判断，假设是文件

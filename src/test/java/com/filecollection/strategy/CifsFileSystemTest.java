@@ -18,4 +18,27 @@ class CifsFileSystemTest {
         assertTrue(CifsFileSystem.isSmbPath(smbUri));
         assertFalse(CifsFileSystem.isSmbPath(localPath));
     }
+    
+    @Test
+    void shouldIdentifyFilesAndDirectories() {
+        CifsFileSystem fs = new CifsFileSystem("host", "share", "user", "pass", "path");
+        
+        class FileEntry {
+            public Long getFileAttributes() {
+                return 0x00000080L; // FILE_ATTRIBUTE_NORMAL
+            }
+        }
+        class DirectoryEntry {
+            public Long getFileAttributes() {
+                return 0x00000010L; // FILE_ATTRIBUTE_DIRECTORY
+            }
+        }
+        class BadEntry {
+            // does not have getFileAttributes()
+        }
+        
+        assertTrue(fs.isFile(new FileEntry()));
+        assertFalse(fs.isFile(new DirectoryEntry()));
+        assertTrue(fs.isFile(new BadEntry())); // fallback
+    }
 }

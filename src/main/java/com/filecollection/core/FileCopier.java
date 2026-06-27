@@ -26,6 +26,11 @@ public class FileCopier {
         this.rateLimiter = RateLimiter.create(bytesPerSecond);
     }
     
+    public void setRateLimit(long bytesPerSecond) {
+        log.info("Setting FileCopier rate limit to {} B/s", bytesPerSecond);
+        this.rateLimiter.setRate(bytesPerSecond);
+    }
+    
     public void copyFile(FileSystemStrategy sourceFs, String sourcePath, 
                          FileSystemStrategy targetFs, String targetPath) {
         copyFile(sourceFs, sourcePath, targetFs, targetPath, STRATEGY_OVERWRITE);

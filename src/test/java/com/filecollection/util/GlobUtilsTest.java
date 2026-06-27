@@ -49,6 +49,12 @@ class GlobUtilsTest {
     }
     
     @Test
+    void shouldMatchPosixNegatedBracket() {
+        assertTrue(GlobUtils.matchGlob("d", "[!abc]"));
+        assertFalse(GlobUtils.matchGlob("a", "[!abc]"));
+    }
+    
+    @Test
     void shouldMatchComplexPattern() {
         assertTrue(GlobUtils.matchGlob("report_2024.csv", "report_*.csv"));
         assertTrue(GlobUtils.matchGlob("data_v2.txt", "data_v?.txt"));

@@ -164,4 +164,13 @@ class FileCopierTest {
         byte[] result = Files.readAllBytes(target);
         assertArrayEquals(binaryData, result);
     }
+    
+    @Test
+    void shouldUpdateRateLimitDynamically() {
+        // Given
+        FileCopier copier = new FileCopier(1024 * 1024);
+        
+        // When & Then
+        assertDoesNotThrow(() -> copier.setRateLimit(2048 * 1024));
+    }
 }
