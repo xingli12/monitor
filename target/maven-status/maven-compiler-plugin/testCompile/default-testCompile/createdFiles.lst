@@ -1,0 +1,5 @@
+com/filecollection/strategy/LocalFileSystemTest.class
+com/filecollection/strategy/FtpFileSystemTest.class
+com/filecollection/core/TaskManagerTest.class
+com/filecollection/strategy/CifsFileSystemTest.class
+com/filecollection/core/FileCopierTest.class

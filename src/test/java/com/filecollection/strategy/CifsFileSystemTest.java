@@ -9,10 +9,13 @@ class CifsFileSystemTest {
     @Test
     void shouldMatchSmbPath() {
         // Given
-        String path = "/incoming/data/test.csv";
+        String uncPath = "\\\\server\\share\\data\\test.csv";
+        String smbUri = "smb://server/share/data/test.csv";
+        String localPath = "/local/path";
         
         // When & Then
-        assertTrue(CifsFileSystem.isSmbPath(path));
-        assertFalse(CifsFileSystem.isSmbPath("/local/path"));
+        assertTrue(CifsFileSystem.isSmbPath(uncPath));
+        assertTrue(CifsFileSystem.isSmbPath(smbUri));
+        assertFalse(CifsFileSystem.isSmbPath(localPath));
     }
 }

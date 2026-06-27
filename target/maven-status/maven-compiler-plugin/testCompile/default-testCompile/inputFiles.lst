@@ -1,0 +1,5 @@
+/Users/MBP/workspace/eqp-data/monitor/src/test/java/com/filecollection/core/FileCopierTest.java
+/Users/MBP/workspace/eqp-data/monitor/src/test/java/com/filecollection/core/TaskManagerTest.java
+/Users/MBP/workspace/eqp-data/monitor/src/test/java/com/filecollection/strategy/CifsFileSystemTest.java
+/Users/MBP/workspace/eqp-data/monitor/src/test/java/com/filecollection/strategy/FtpFileSystemTest.java
+/Users/MBP/workspace/eqp-data/monitor/src/test/java/com/filecollection/strategy/LocalFileSystemTest.java
